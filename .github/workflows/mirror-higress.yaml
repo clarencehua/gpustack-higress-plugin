@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Higress version to mirror (e.g. 2.0.0)"
+        description: "Higress version to mirror (e.g. 2.1.9)"
+        required: true
+        type: string
+      api_server_version:
+        description: "The higress's filebase api server version to mirror (e.g. 0.0.26)"
         required: true
         type: string
 
@@ -14,10 +18,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - higress
-          - pilot
-          - gateway
+        include:
+          - image: higress
+            tag: ${{ inputs.version }}
+          - image: pilot
+            tag: ${{ inputs.version }}
+          - image: gateway
+            tag: ${{ inputs.version }}
+          - image: api-server
+            tag: ${{ inputs.api_server_version }}
     steps:
       - name: Install skopeo
         run: |
@@ -30,9 +39,9 @@ jobs:
           username: ${{ secrets.CI_DOCKERHUB_USERNAME }}
           password: ${{ secrets.CI_DOCKERHUB_PASSWORD }}
 
-      - name: Mirror ${{ matrix.image }}
+      - name: Mirror ${{ matrix.image }}:${{ matrix.tag }}
         run: |
           skopeo copy --all \
             --authfile ~/.docker/config.json \
-            "docker://higress-registry.cn-hangzhou.cr.aliyuncs.com/higress/${{ matrix.image }}:${{ inputs.version }}" \
-            "docker://docker.io/gpustack/mirrored-higress-${{ matrix.image }}:${{ inputs.version }}"
+            "docker://higress-registry.cn-hangzhou.cr.aliyuncs.com/higress/${{ matrix.image }}:${{ matrix.tag }}" \
+            "docker://docker.io/gpustack/mirrored-higress-${{ matrix.image }}:${{ matrix.tag }}"
