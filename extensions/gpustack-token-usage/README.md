@@ -106,14 +106,16 @@ User ID and access key are read from the `x-mse-consumer` request header, which 
   "input_token": 50,
   "output_token": 100,
   "total_token": 150,
+  "input_cached_token": 10,
   "request_count": 1,
   "model_id": 3,
+  "model_route_id": 1,
   "user_id": 42,
   "access_key": "mykey"
 }
 ```
 
-`model_id` and `provider_id` are mutually exclusive and derived from the route name. For TTS/STT or other non-LLM routes where no token usage is recorded, all token counts default to `0`.
+`model_id` and `provider_id` are mutually exclusive and derived from the cluster name. `model_route_id` is derived from the Envoy `route_name` property (formats `ai-route-route-<id>.internal` or `ai-route-route-<id>.fallback.internal`) and is omitted when the route name does not match. `input_cached_token` aggregates cached prompt tokens from OpenAI/vLLM (`usage.prompt_tokens_details.cached_tokens`) and Anthropic (`cache_read_input_tokens`); cache-creation tokens are excluded because they are new tokens being written, not a hit. For TTS/STT or other non-LLM routes where no token usage is recorded, all token counts default to `0`.
 
 The HTTP call is fire-and-forget (async via `DispatchHttpCall`); it does not block the response to the client.
 
