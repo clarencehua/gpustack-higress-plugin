@@ -28,7 +28,7 @@ on:
 env:
   INPUT_PYTHON_VERSION: '3.11'
   INPUT_PROJECT: gpustack-higress-plugins
-  DOCKER_IMAGE: gpustack/higress-plugins
+  DOCKER_IMAGE: ${{ vars.DOCKER_REPO || 'gpustack' }}/higress-plugins
 
 jobs:
   release:
@@ -78,17 +78,23 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Strip leading 'v' from the tag name for use as a Docker image tag.
-      # Needed as a fallback for PEP 440 RC tags (e.g. v1.0.0rc1) which are
-      # not valid SemVer 2.0 and therefore not parsed by docker/metadata-action.
+      # Used as the always-on raw fallback for PEP 440 versions that are not
+      # valid SemVer 2.0 (e.g. v1.0.0rc1, v0.2.1.post3, v1.0.0.dev1) and would
+      # otherwise be silently dropped by docker/metadata-action's semver parser.
       - name: Extract image version
         id: image-version
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       # Compute Docker image tags:
-      #   v1.2.3        → gpustack/higress-plugins:1.2.3, :1.2, :latest
-      #   v1.2.3-rc1    → gpustack/higress-plugins:1.2.3-rc1  (no :latest)
-      #   v1.2.3rc1     → gpustack/higress-plugins:1.2.3rc1   (no :latest, PEP 440 style)
+      #   v1.2.3            → gpustack/higress-plugins:1.2.3, :1.2, :latest
+      #   v1.2.3-rc1        → gpustack/higress-plugins:1.2.3-rc1  (no :latest)
+      #   v1.2.3rc1         → gpustack/higress-plugins:1.2.3rc1   (PEP 440, no :latest)
+      #   v0.2.1.post3      → gpustack/higress-plugins:0.2.1.post3 (PEP 440, no :latest)
+      #
+      # The raw `<version>` tag is always emitted so PEP 440 versions that
+      # SemVer can't parse (rc / post / dev) still get a versioned image.
+      # `:latest` and `:{{major}}.{{minor}}` are gated to pure-stable releases only.
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -96,9 +102,9 @@ jobs:
           images: ${{ env.DOCKER_IMAGE }}
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') }}
-            type=raw,value=${{ steps.image-version.outputs.value }},enable=${{ contains(github.ref_name, 'rc') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, '.post') && !contains(github.ref_name, '.dev') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, '.post') && !contains(github.ref_name, '.dev') }}
+            type=raw,value=${{ steps.image-version.outputs.value }}
 
       # Build and push multi-platform Docker image with version tags.
       # Reuses layers cached by the whl build above.
