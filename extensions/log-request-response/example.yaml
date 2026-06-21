@@ -1,0 +1,30 @@
+apiVersion: extensions.higress.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: log-request-response
+spec:
+  defaultConfig:
+    request:
+      headers:
+        enabled: true
+      body:
+        enabled: true
+        maxSize: 10240
+        contentTypes:
+          - application/json
+          - application/xml
+          - application/x-www-form-urlencoded
+          - text/plain
+    response:
+      headers:
+        enabled: true
+      body:
+        enabled: true
+        maxSize: 10240
+        contentTypes:
+          - application/json
+          - application/xml
+          - text/plain
+          - text/html
+  url: file:///etc/wasm/plugins/log-request-response/plugin.wasm
+  enable: true
